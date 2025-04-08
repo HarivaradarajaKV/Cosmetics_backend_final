@@ -189,9 +189,11 @@ router.put('/orders/:id/status', adminAuth, async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
         
-        const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+        const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ error: 'Invalid status' });
+            return res.status(400).json({ 
+                error: `Invalid status. Status must be one of: ${validStatuses.join(', ')}` 
+            });
         }
         
         const updatedOrder = await pool.query(
@@ -200,12 +202,15 @@ router.put('/orders/:id/status', adminAuth, async (req, res) => {
         );
         
         if (updatedOrder.rows.length === 0) {
-            return res.status(404).json({ error: 'Order not found' });
+            return res.status(404).json({ error: 'Order not found. Please check the order ID and try again.' });
         }
         
         res.json(updatedOrder.rows[0]);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error updating order status:', error);
+        res.status(500).json({ 
+            error: 'Unable to update order status. Please try again later.' 
+        });
     }
 });
 
