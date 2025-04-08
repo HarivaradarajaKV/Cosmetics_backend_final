@@ -1,5 +1,9 @@
- const { Pool } = require('pg');
- require('dotenv').config();
+const { Pool } = require('pg');
+const dns = require('dns');
+const { promisify } = require('util');
+require('dotenv').config();
+
+const dnsResolve = promisify(dns.resolve4);
 
 // Define default configuration for local development
 const defaultConfig = {
@@ -9,6 +13,18 @@ const defaultConfig = {
     database: 'postgres',
     ssl: {
         rejectUnauthorized: false
+    }
+};
+
+// Function to verify DNS resolution
+const verifyDNS = async (hostname) => {
+    try {
+        const addresses = await dnsResolve(hostname);
+        console.log(`DNS Resolution successful for ${hostname}:`, addresses[0]);
+        return true;
+    } catch (error) {
+        console.error(`DNS Resolution failed for ${hostname}:`, error.message);
+        return false;
     }
 };
 
@@ -56,16 +72,24 @@ const pool = new Pool({
     keepAliveInitialDelayMillis: 10000
 });
 
-// Test database connection with retries
+// Test database connection with retries and DNS verification
 const testConnection = async (retries = 3, delay = 5000) => {
+    const hostname = defaultConfig.host;
+    
     for (let i = 0; i < retries; i++) {
         try {
+            // Verify DNS resolution first
+            const dnsOk = await verifyDNS(hostname);
+            if (!dnsOk) {
+                throw new Error('DNS resolution failed');
+            }
+
             const client = await pool.connect();
             console.log('Database connection test successful');
             client.release();
             return;
         } catch (err) {
-            console.error(`Database connection attempt ${i + 1}/${retries} failed:`, err);
+            console.error(`Database connection attempt ${i + 1}/${retries} failed:`, err.message);
             if (i < retries - 1) {
                 console.log(`Retrying in ${delay/1000} seconds...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
