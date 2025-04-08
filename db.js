@@ -9,11 +9,28 @@ const pool = new Pool({
     database: process.env.DB_NAME,
     max: 20,
     idleTimeoutMillis: 300000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 20000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
     ssl: {
         rejectUnauthorized: false
+    },
+    // Add connection retry logic
+    retry_strategy: function(options) {
+        if (options.error && options.error.code === 'ENOTFOUND') {
+            // End reconnecting on a specific error and flush all commands with a individual error
+            return new Error('The database host could not be found');
+        }
+        if (options.total_retry_time > 1000 * 60 * 60) {
+            // End reconnecting after a specific timeout and flush all commands with a individual error
+            return new Error('Retry time exhausted');
+        }
+        if (options.attempt > 10) {
+            // End reconnecting with built in error
+            return undefined;
+        }
+        // Reconnect after
+        return Math.min(options.attempt * 100, 3000);
     }
 });
 

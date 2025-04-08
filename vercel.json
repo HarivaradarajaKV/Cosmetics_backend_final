@@ -18,6 +18,7 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "DB_SSL": "true"
+    "DB_SSL": "true",
+    "PORT": "5001"
   }
 } 
