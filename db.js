@@ -1,5 +1,5 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+ const { Pool } = require('pg');
+ require('dotenv').config();
 
 // Define default configuration for local development
 const defaultConfig = {
@@ -106,3 +106,4 @@ pool.on('remove', () => {
 });
 
 module.exports = pool; 
+
