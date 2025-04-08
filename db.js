@@ -1,21 +1,32 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Define default configuration for local development
+const defaultConfig = {
+    user: 'postgres',
+    host: 'db.uffdxraxivdxjglbfkti.supabase.co',
+    port: '5432',
+    database: 'postgres',
+    ssl: {
+        rejectUnauthorized: false
+    }
+};
+
 // Log environment variables for debugging (without sensitive data)
 console.log('Database Configuration:', {
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
+    user: process.env.DB_USER || defaultConfig.user,
+    host: process.env.DB_HOST || defaultConfig.host,
+    port: process.env.DB_PORT || defaultConfig.port,
+    database: process.env.DB_NAME || defaultConfig.database,
     ssl: true
 });
 
 const pool = new Pool({
-    user: process.env.DB_USER,
+    user: process.env.DB_USER || defaultConfig.user,
     password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
+    host: process.env.DB_HOST || defaultConfig.host,
+    port: process.env.DB_PORT || defaultConfig.port,
+    database: process.env.DB_NAME || defaultConfig.database,
     max: 20,
     idleTimeoutMillis: 300000,
     connectionTimeoutMillis: 20000,
@@ -26,15 +37,21 @@ const pool = new Pool({
     }
 });
 
-// Test database connection immediately
-const testConnection = async () => {
-    try {
-        const client = await pool.connect();
-        console.log('Database connection test successful');
-        client.release();
-    } catch (err) {
-        console.error('Database connection test failed:', err);
-        // Don't throw the error, let the application continue
+// Test database connection with retries
+const testConnection = async (retries = 3, delay = 5000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const client = await pool.connect();
+            console.log('Database connection test successful');
+            client.release();
+            return;
+        } catch (err) {
+            console.error(`Database connection attempt ${i + 1}/${retries} failed:`, err);
+            if (i < retries - 1) {
+                console.log(`Retrying in ${delay/1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
 };
 
