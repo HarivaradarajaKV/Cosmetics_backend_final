@@ -4,7 +4,8 @@ require('dotenv').config();
 // Define default configuration for local development
 const defaultConfig = {
     user: 'postgres',
-    host: 'db.uffdxraxivdxjglbfkti.supabase.co',
+    // Using the direct connection string format for Supabase
+    host: process.env.SUPABASE_HOST || 'aws-0-us-west-1.pooler.supabase.com',
     port: '5432',
     database: 'postgres',
     ssl: {
@@ -12,29 +13,48 @@ const defaultConfig = {
     }
 };
 
+// Determine if we're in production (Vercel) environment
+const isProduction = process.env.VERCEL === '1';
+
+// Construct connection config
+const getConnectionConfig = () => {
+    // If DATABASE_URL is provided (Vercel/Production), use it
+    if (process.env.DATABASE_URL) {
+        return {
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false
+            }
+        };
+    }
+
+    // Otherwise use individual config parameters
+    return {
+        user: process.env.DB_USER || defaultConfig.user,
+        password: process.env.DB_PASSWORD,
+        host: process.env.DB_HOST || defaultConfig.host,
+        port: process.env.DB_PORT || defaultConfig.port,
+        database: process.env.DB_NAME || defaultConfig.database,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    };
+};
+
 // Log environment variables for debugging (without sensitive data)
 console.log('Database Configuration:', {
-    user: process.env.DB_USER || defaultConfig.user,
-    host: process.env.DB_HOST || defaultConfig.host,
-    port: process.env.DB_PORT || defaultConfig.port,
-    database: process.env.DB_NAME || defaultConfig.database,
+    ...getConnectionConfig(),
+    password: '[REDACTED]',
     ssl: true
 });
 
 const pool = new Pool({
-    user: process.env.DB_USER || defaultConfig.user,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST || defaultConfig.host,
-    port: process.env.DB_PORT || defaultConfig.port,
-    database: process.env.DB_NAME || defaultConfig.database,
+    ...getConnectionConfig(),
     max: 20,
     idleTimeoutMillis: 300000,
     connectionTimeoutMillis: 20000,
     keepAlive: true,
-    keepAliveInitialDelayMillis: 10000,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    keepAliveInitialDelayMillis: 10000
 });
 
 // Test database connection with retries
