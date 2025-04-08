@@ -1,6 +1,15 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Log environment variables for debugging (without sensitive data)
+console.log('Database Configuration:', {
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    database: process.env.DB_NAME,
+    ssl: true
+});
+
 const pool = new Pool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -14,25 +23,22 @@ const pool = new Pool({
     keepAliveInitialDelayMillis: 10000,
     ssl: {
         rejectUnauthorized: false
-    },
-    // Add connection retry logic
-    retry_strategy: function(options) {
-        if (options.error && options.error.code === 'ENOTFOUND') {
-            // End reconnecting on a specific error and flush all commands with a individual error
-            return new Error('The database host could not be found');
-        }
-        if (options.total_retry_time > 1000 * 60 * 60) {
-            // End reconnecting after a specific timeout and flush all commands with a individual error
-            return new Error('Retry time exhausted');
-        }
-        if (options.attempt > 10) {
-            // End reconnecting with built in error
-            return undefined;
-        }
-        // Reconnect after
-        return Math.min(options.attempt * 100, 3000);
     }
 });
+
+// Test database connection immediately
+const testConnection = async () => {
+    try {
+        const client = await pool.connect();
+        console.log('Database connection test successful');
+        client.release();
+    } catch (err) {
+        console.error('Database connection test failed:', err);
+        // Don't throw the error, let the application continue
+    }
+};
+
+testConnection();
 
 // Handle pool errors
 pool.on('error', (err, client) => {
