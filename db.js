@@ -4,17 +4,13 @@ require('dotenv').config();
 // Define default configuration for local development
 const defaultConfig = {
     user: 'postgres',
-    // Using the direct connection string format for Supabase
-    host: process.env.SUPABASE_HOST || 'aws-0-us-west-1.pooler.supabase.com',
+    host: 'db.uffdxraxivdxjglbfkti.supabase.co',
     port: '5432',
     database: 'postgres',
     ssl: {
         rejectUnauthorized: false
     }
 };
-
-// Determine if we're in production (Vercel) environment
-const isProduction = process.env.VERCEL === '1';
 
 // Construct connection config
 const getConnectionConfig = () => {
@@ -28,13 +24,16 @@ const getConnectionConfig = () => {
         };
     }
 
-    // Otherwise use individual config parameters
+    // For local development, construct the connection string
+    const password = process.env.DB_PASSWORD;
+    if (!password) {
+        throw new Error('Database password is required');
+    }
+
+    const connectionString = `postgresql://${defaultConfig.user}:${password}@${defaultConfig.host}:${defaultConfig.port}/${defaultConfig.database}`;
+    
     return {
-        user: process.env.DB_USER || defaultConfig.user,
-        password: process.env.DB_PASSWORD,
-        host: process.env.DB_HOST || defaultConfig.host,
-        port: process.env.DB_PORT || defaultConfig.port,
-        database: process.env.DB_NAME || defaultConfig.database,
+        connectionString,
         ssl: {
             rejectUnauthorized: false
         }
@@ -42,14 +41,14 @@ const getConnectionConfig = () => {
 };
 
 // Log environment variables for debugging (without sensitive data)
+const config = getConnectionConfig();
 console.log('Database Configuration:', {
-    ...getConnectionConfig(),
-    password: '[REDACTED]',
+    connectionString: config.connectionString ? '[REDACTED]' : undefined,
     ssl: true
 });
 
 const pool = new Pool({
-    ...getConnectionConfig(),
+    ...config,
     max: 20,
     idleTimeoutMillis: 300000,
     connectionTimeoutMillis: 20000,
@@ -70,6 +69,9 @@ const testConnection = async (retries = 3, delay = 5000) => {
             if (i < retries - 1) {
                 console.log(`Retrying in ${delay/1000} seconds...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('All connection attempts failed. Please check your database configuration and network connectivity.');
+                // Don't throw the error, let the application continue
             }
         }
     }
